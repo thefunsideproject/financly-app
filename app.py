@@ -28,6 +28,11 @@ class User(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
 
+    # Relationships
+    banks = db.relationship("Bank", backref="user", lazy=True)
+    transactions = db.relationship("Transaction", backref="user", lazy=True)
+    expenses = db.relationship("Expense", backref="user", lazy=True)
+
 # Bank model
 
 
@@ -35,6 +40,9 @@ class Bank(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     balance = db.Column(db.Float, nullable=False, default=0.0)
+
+    # Foreign key to associate with a user
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
     # Relationship with Transaction
     transactions = db.relationship(
@@ -44,8 +52,6 @@ class Bank(db.Model):
         lazy=True
     )
 
-# Transaction model
-
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -54,10 +60,12 @@ class Transaction(db.Model):
     amount = db.Column(db.Float, nullable=False)
     description = db.Column(db.String(200))
     timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    bank_id = db.Column(db.Integer, db.ForeignKey(
-        "bank.id", name="fk_transaction_bank_id"), nullable=False)
-    expense_id = db.Column(db.Integer, db.ForeignKey(
-        "expense.id", name="fk_transaction_expense_id"), nullable=True)  # Link to Expense
+
+    # Foreign keys to associate with a user, a bank, and an expense
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=True)
+    expense_id = db.Column(
+        db.Integer, db.ForeignKey('expense.id'), nullable=True)
 
 # Expense model
 
@@ -67,6 +75,9 @@ class Expense(db.Model):
     name = db.Column(db.String(100), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     paid = db.Column(db.Float, nullable=False, default=0.0)
+
+    # Foreign key to associate with a user
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
     # Relationship with Transaction
     transactions = db.relationship(
@@ -89,6 +100,13 @@ class InventoryItem(db.Model):
     selling_price = db.Column(db.Float, nullable=False)
     color = db.Column(db.String(50))
     size = db.Column(db.String(50))
+    user_id = db.Column(db.Integer, db.ForeignKey(
+        'user.id'), nullable=False)  # Associate with a user
+
+    # Add a property to calculate profit
+    @property
+    def profit(self):
+        return self.selling_price - self.cost
 
 
 # In-memory storage for banks and expenses
@@ -144,6 +162,7 @@ def login():
         # Check if user exists and password is correct
         if user and check_password_hash(user.password, password):
             session["user"] = username
+            session["user_id"] = user.id  # Store user_id in the session
             flash("Login successful!", "success")
             return redirect(url_for("cash_flow"))
         else:
@@ -155,6 +174,7 @@ def login():
 @app.route("/logout")
 def logout():
     session.pop("user", None)
+    session.pop("user_id", None)  # Remove user_id from the session
     flash("You have been logged out.", "success")
     return redirect(url_for("login"))
 
@@ -175,18 +195,28 @@ def home():
 
 @app.route("/cash_flow", methods=["GET", "POST"])
 def cash_flow():
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("You must be logged in to perform this action.", "error")
+        return redirect(url_for("login"))
+
     if request.method == "POST":
-        # Handle adding a new bank
         if "new_bank_name" in request.form:
             bank_name = request.form["new_bank_name"].strip()
             if bank_name:
-                # Check if the bank already exists
                 existing_bank = Bank.query.filter_by(name=bank_name).first()
-                if (existing_bank):
+                if existing_bank:
                     flash("Bank already exists!", "error")
                 else:
-                    # Add the new bank to the database
-                    new_bank = Bank(name=bank_name, balance=0.0)
+                    # Safely get user_id from the session
+                    user_id = session.get("user_id")
+                    if not user_id:
+                        flash("You must be logged in to add a bank.", "error")
+                        return redirect(url_for("login"))
+
+                    # Add the new bank to the database with user_id
+                    new_bank = Bank(
+                        name=bank_name, balance=0.0, user_id=user_id)
                     db.session.add(new_bank)
                     db.session.commit()
                     flash("Bank added successfully!", "success")
@@ -205,6 +235,12 @@ def cash_flow():
             if not bank:
                 flash("Bank not found!", "error")
             else:
+                # Get user_id from the session
+                user_id = session.get("user_id")
+                if not user_id:
+                    flash("You must be logged in to perform this action.", "error")
+                    return redirect(url_for("login"))
+
                 if transaction_type == "deposit":
                     # Perform deposit
                     bank.balance += amount
@@ -212,6 +248,8 @@ def cash_flow():
                         type="deposit",
                         amount=amount,
                         description=description,
+                        timestamp=datetime.utcnow(),
+                        user_id=user_id,  # Include user_id
                         bank_id=bank.id
                     )
                     db.session.add(new_transaction)
@@ -226,6 +264,8 @@ def cash_flow():
                             type="withdraw",
                             amount=amount,
                             description=description,
+                            timestamp=datetime.utcnow(),
+                            user_id=user_id,  # Include user_id
                             bank_id=bank.id
                         )
                         db.session.add(new_transaction)
@@ -240,15 +280,18 @@ def cash_flow():
             bank_name = request.form["delete_bank_name"]
             bank = Bank.query.filter_by(name=bank_name).first()
             if bank:
+                # Set bank_id to NULL for all transactions associated with the bank
+                for transaction in bank.transactions:
+                    transaction.bank_id = None
                 db.session.delete(bank)
                 db.session.commit()
                 flash(f"Bank {bank_name} deleted successfully.", "success")
             else:
                 flash("Bank not found!", "error")
 
-    # Fetch all banks and transactions from the database
-    banks = Bank.query.all()
-    transactions = Transaction.query.order_by(
+    # Fetch only the logged-in user's banks and transactions
+    banks = Bank.query.filter_by(user_id=user_id).all()
+    transactions = Transaction.query.filter_by(user_id=user_id).order_by(
         Transaction.timestamp.desc()).all()
 
     # Add bank name to each transaction
@@ -291,28 +334,39 @@ def cash_flow():
 
 @app.route("/monthly_expenses", methods=["GET", "POST"])
 def monthly_expenses():
-    # Fetch all banks and expenses from the database
-    banks = Bank.query.all()
-    expenses = Expense.query.all()
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("You must be logged in to perform this action.", "error")
+        return redirect(url_for("login"))
+
+    # Fetch only the logged-in user's banks and expenses
+    banks = Bank.query.filter_by(user_id=user_id).all()
+    expenses = Expense.query.filter_by(user_id=user_id).all()
 
     if request.method == "POST":
-        print("Form data received:", request.form)
-
+        # Handle adding a new expense
         if "expense_name" in request.form and "expense_amount" in request.form:
-            print("Adding expense:",
-                  request.form["expense_name"], request.form["expense_amount"])
-
-        elif "delete_expense" in request.form:
-            print("Deleting expense ID:", request.form["delete_expense"])
+            expense_name = request.form["expense_name"].strip()
+            expense_amount = float(request.form["expense_amount"])
+            if expense_name and expense_amount > 0:
+                new_expense = Expense(
+                    name=expense_name,
+                    amount=expense_amount,
+                    paid=0.0,
+                    user_id=user_id  # Associate the expense with the logged-in user
+                )
+                db.session.add(new_expense)
+                db.session.commit()
+                flash(
+                    f"Expense '{expense_name}' added successfully!", "success")
+            else:
+                flash("Invalid expense name or amount.", "error")
 
         # Handle paying an expense
         if "expense_id" in request.form and "amount_paid" in request.form:
-            print("Pay Expense request received:", request.form)
             expense_id = int(request.form["expense_id"])
             amount_paid = float(request.form["amount_paid"])
             bank_id = request.form.get("bank_id")
-            print(
-                f"Expense ID: {expense_id}, Amount Paid: {amount_paid}, Bank ID: {bank_id}")
 
             # Find the bank and expense
             bank = Bank.query.get(bank_id)
@@ -338,6 +392,8 @@ def monthly_expenses():
                         type="expense_payment",
                         amount=amount_paid,
                         description=f"Payment for {expense.name}",
+                        timestamp=datetime.utcnow(),
+                        user_id=user_id,  # Include user_id
                         bank_id=bank.id,
                         expense_id=expense.id
                     )
@@ -349,38 +405,12 @@ def monthly_expenses():
                 else:
                     flash("Insufficient funds in the selected bank.", "error")
 
-            # Redirect to avoid form resubmission
-            return redirect(url_for("monthly_expenses"))
-
-        # Handle adding a new expense
-        if "expense_name" in request.form and "expense_amount" in request.form:
-            expense_name = request.form["expense_name"].strip()
-            expense_amount = float(request.form["expense_amount"])
-            if expense_name and expense_amount > 0:
-                new_expense = Expense(
-                    name=expense_name, amount=expense_amount, paid=0.0)
-                db.session.add(new_expense)
-                db.session.commit()
-                flash(
-                    f"Expense '{expense_name}' added successfully!", "success")
-            else:
-                flash("Invalid expense name or amount.", "error")
-
-            # Redirect to avoid form resubmission
-            return redirect(url_for("monthly_expenses"))
-
         # Handle deleting an expense
-        elif "delete_expense" in request.form:
+        if "delete_expense" in request.form:
             expense_id = int(request.form["delete_expense"])
             expense = Expense.query.get(expense_id)
-            if expense:
-                # Delete related transactions
-                related_transactions = Transaction.query.filter_by(
-                    expense_id=expense.id).all()
-                for transaction in related_transactions:
-                    db.session.delete(transaction)
 
-                # Delete the expense
+            if expense:
                 db.session.delete(expense)
                 db.session.commit()
                 flash(
@@ -388,17 +418,17 @@ def monthly_expenses():
             else:
                 flash("Expense not found!", "error")
 
-            # Redirect to avoid form resubmission
-            return redirect(url_for("monthly_expenses"))
+        # Redirect to avoid form resubmission
+        return redirect(url_for("monthly_expenses"))
 
     # Calculate totals
     total_expenses = sum(expense.amount for expense in expenses)
     total_paid = sum(expense.paid for expense in expenses)
     total_remaining = total_expenses - total_paid
 
-    # Fetch transactions related to expense payments
+    # Fetch transactions related to expense payments for the logged-in user
     expense_transactions = Transaction.query.filter_by(
-        type="expense_payment").order_by(Transaction.timestamp.desc()).all()
+        user_id=user_id, type="expense_payment").order_by(Transaction.timestamp.desc()).all()
 
     return render_template(
         "monthly_expenses.html",
@@ -413,13 +443,18 @@ def monthly_expenses():
 
 @app.route("/transactions", methods=["GET", "POST"])
 def transactions():
-    # Fetch all banks from the database
-    banks = Bank.query.all()
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("You must be logged in to perform this action.", "error")
+        return redirect(url_for("login"))
+
+    # Fetch only the logged-in user's banks
+    banks = Bank.query.filter_by(user_id=user_id).all()
 
     # Initialize an empty list to store all transactions
     all_transactions = []
 
-    # Collect all transactions from all banks
+    # Collect all transactions from the logged-in user's banks
     for bank in banks:
         for transaction in bank.transactions:
             all_transactions.append({
@@ -433,7 +468,7 @@ def transactions():
     # Sort transactions by timestamp (newest first)
     all_transactions.sort(key=lambda x: x["timestamp"], reverse=True)
 
-    # Filter transactions by date and bank if filters are applied
+    # Filter transactions by date, bank, or type if filters are applied
     filtered_transactions = all_transactions
     if request.method == "POST":
         start_date = request.form.get("start_date")
@@ -462,7 +497,10 @@ def transactions():
 
 @app.route("/inventory", methods=["GET", "POST"])
 def inventory_page():
-    global inventory
+    user_id = session.get("user_id")
+    if not user_id:
+        flash("You must be logged in to perform this action.", "error")
+        return redirect(url_for("login"))
 
     if request.method == "POST":
         # Add a new inventory item
@@ -484,43 +522,59 @@ def inventory_page():
             item_selling_price = float(request.form["item_selling_price"])
             item_color = request.form["item_color"].strip()
             item_size = request.form["item_size"].strip()
-            profit = item_selling_price - item_cost  # Profit per item
-            margin = ((item_selling_price - item_cost) /
-                      item_selling_price) * 100  # Margin as a percentage
 
-            inventory.append({
-                "brand": item_brand,
-                "name": item_name,
-                "sku": item_sku,
-                "quantity": item_quantity,
-                "cost": item_cost,
-                "selling_price": item_selling_price,
-                "profit": profit,
-                "margin": margin,
-                "color": item_color,
-                "size": item_size
-            })
+            # Add the new inventory item to the database
+            new_item = InventoryItem(
+                brand=item_brand,
+                name=item_name,
+                sku=item_sku,
+                quantity=item_quantity,
+                cost=item_cost,
+                selling_price=item_selling_price,
+                color=item_color,
+                size=item_size,
+                user_id=user_id  # Associate with the logged-in user
+            )
+            db.session.add(new_item)
+            db.session.commit()
+            flash("Inventory item added successfully!", "success")
 
         # Update item quantity
-        elif "update_item_index" in request.form and "new_quantity" in request.form:
-            item_index = int(request.form["update_item_index"])
+        elif "update_item_id" in request.form and "new_quantity" in request.form:
+            item_id = int(request.form["update_item_id"])
             new_quantity = int(request.form["new_quantity"])
-            if 0 <= item_index < len(inventory):
-                inventory[item_index]["quantity"] = new_quantity
+            item = InventoryItem.query.filter_by(
+                id=item_id, user_id=user_id).first()
+            if item:
+                item.quantity = new_quantity
+                db.session.commit()
+                flash("Item quantity updated successfully!", "success")
+            else:
+                flash("Item not found!", "error")
 
         # Delete an inventory item
-        elif "delete_item_index" in request.form:
-            item_index = int(request.form["delete_item_index"])
-            if 0 <= item_index < len(inventory):
-                inventory.pop(item_index)
+        elif "delete_item_id" in request.form:
+            item_id = int(request.form["delete_item_id"])
+            item = InventoryItem.query.filter_by(
+                id=item_id, user_id=user_id).first()
+            if item:
+                db.session.delete(item)
+                db.session.commit()
+                flash("Item deleted successfully!", "success")
+            else:
+                flash("Item not found!", "error")
+
+    # Fetch only the logged-in user's inventory items
+    inventory = InventoryItem.query.filter_by(user_id=user_id).all()
 
     # Calculate totals for display
-    total_items_cost = sum(item["quantity"] * item["cost"]
-                           for item in inventory)
+    total_items_cost = sum(item.quantity * item.cost for item in inventory)
     total_profit_available = sum(
-        item["quantity"] * item["profit"] for item in inventory)
+        item.quantity * (item.selling_price - item.cost) for item in inventory
+    )
     total_revenue_available = sum(
-        item["quantity"] * item["selling_price"] for item in inventory)
+        item.quantity * item.selling_price for item in inventory
+    )
 
     # Corrected calculation for average inventory margin
     average_margin = (
@@ -571,6 +625,33 @@ def export_transactions():
         headers={"Content-Disposition": "attachment;filename=transactions.csv"}
     )
     return response
+
+
+@app.route("/seed_db")
+def seed_db():
+    # Create a test user
+    hashed_password = generate_password_hash("password123")
+    test_user = User(username="testuser", password=hashed_password)
+    db.session.add(test_user)
+    db.session.commit()
+
+    # Create a test bank for the user
+    test_bank = Bank(name="Test Bank", balance=1000.0, user_id=test_user.id)
+    db.session.add(test_bank)
+    db.session.commit()
+
+    # Create a test expense for the user
+    test_expense = Expense(name="Test Expense", amount=500.0,
+                           paid=0.0, user_id=test_user.id)
+    db.session.add(test_expense)
+    db.session.commit()
+
+    return "Database seeded successfully!"
+
+
+@app.route("/debug_session")
+def debug_session():
+    return f"Session: {session}"
 
 
 if __name__ == "__main__":

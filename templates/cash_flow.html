@@ -88,6 +88,7 @@
         <a href="{{ url_for('transactions') }}"
             style="color: white; text-decoration: none; margin-right: 20px;">Transactions</a>
         <a href="{{ url_for('inventory_page') }}" style="color: white; text-decoration: none;">Inventory</a>
+        <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
     </nav>
 
     <h1>Cash Flow</h1>
@@ -164,21 +165,6 @@
         <p style="color: green;"><strong>Total Deposits:</strong> {{ "%.2f" | format(total_deposits) }} BHD</p>
         <p style="color: red;"><strong>Total Withdrawals:</strong> {{ "%.2f" | format(total_withdrawals) }} BHD</p>
     </div>
-
-    <script>
-        function showEditForm(bankName) {
-            // Hide all other edit forms
-            document.querySelectorAll('form[id^="edit-form-"]').forEach(form => {
-                form.style.display = 'none';
-            });
-
-            // Show the edit form for the selected bank
-            const form = document.getElementById(`edit-form-${bankName}`);
-            if (form) {
-                form.style.display = 'block';
-            }
-        }
-    </script>
 
     <!-- Transaction History Table -->
     <h2>Transaction History</h2>

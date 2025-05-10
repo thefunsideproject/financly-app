@@ -90,15 +90,16 @@
     <h1>Inventory</h1>
 
     <!-- Add New Item Form -->
-    <form method="POST">
+    <h2>Add Inventory Item</h2>
+    <form method="POST" autocomplete="off">
         <input type="text" name="item_brand" placeholder="Brand" required>
-        <input type="text" name="item_name" placeholder="Product Name" required>
+        <input type="text" name="item_name" placeholder="Name" required>
         <input type="text" name="item_sku" placeholder="SKU" required>
-        <input type="text" name="item_color" placeholder="Color" required>
-        <input type="text" name="item_size" placeholder="Size" required>
-        <input type="number" name="item_quantity" placeholder="Quantity" min="0" required>
-        <input type="number" name="item_cost" placeholder="Cost Per Item" step="0.01" min="0" required>
-        <input type="number" name="item_selling_price" placeholder="Selling Price" step="0.01" min="0" required>
+        <input type="number" name="item_quantity" placeholder="Quantity" required>
+        <input type="number" name="item_cost" placeholder="Cost" step="0.01" required>
+        <input type="number" name="item_selling_price" placeholder="Selling Price" step="0.01" required>
+        <input type="text" name="item_color" placeholder="Color">
+        <input type="text" name="item_size" placeholder="Size">
         <button type="submit">Add Item</button>
     </form>
 
@@ -107,18 +108,12 @@
         <thead>
             <tr>
                 <th>Brand</th>
-                <th>Product Name</th>
+                <th>Name</th>
                 <th>SKU</th>
-                <th>Color</th>
-                <th>Size</th>
                 <th>Quantity</th>
-                <th>Cost Per Item (BHD)</th>
-                <th>Selling Price (BHD)</th>
-                <th>Profit Per Item (BHD)</th>
-                <th>Margin (%)</th>
-                <th>Total Items Cost (BHD)</th>
-                <th>Total Profit (BHD)</th>
-                <th>Total Revenue Available (BHD)</th>
+                <th>Cost</th>
+                <th>Selling Price</th>
+                <th>Profit</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -128,27 +123,21 @@
                 <td>{{ item.brand }}</td>
                 <td>{{ item.name }}</td>
                 <td>{{ item.sku }}</td>
-                <td>{{ item.color }}</td>
-                <td>{{ item.size }}</td>
                 <td>{{ item.quantity }}</td>
                 <td>{{ "%.2f" | format(item.cost) }}</td>
                 <td>{{ "%.2f" | format(item.selling_price) }}</td>
-                <td>{{ "%.2f" | format(item.profit) }}</td> <!-- Profit Per Item -->
-                <td>{{ "%.2f" | format(item.margin) }}%</td> <!-- Margin -->
-                <td>{{ "%.2f" | format(item.quantity * item.cost) }}</td> <!-- Total Items Cost -->
-                <td>{{ "%.2f" | format(item.quantity * item.profit) }}</td> <!-- Total Profit -->
-                <td>{{ "%.2f" | format(item.quantity * item.selling_price) }}</td> <!-- Total Revenue -->
+                <td>{{ "%.2f" | format(item.profit) }}</td> <!-- Use the profit property -->
                 <td>
                     <!-- Update Quantity Form -->
-                    <form method="POST" style="display: inline;">
-                        <input type="hidden" name="update_item_index" value="{{ loop.index0 }}">
-                        <input type="number" name="new_quantity" placeholder="New Quantity" min="0" required>
-                        <button type="submit">Update</button>
+                    <form method="POST">
+                        <input type="hidden" name="update_item_id" value="{{ item.id }}">
+                        <input type="number" name="new_quantity" placeholder="New Quantity" required>
+                        <button type="submit">Update Quantity</button>
                     </form>
                     <!-- Delete Item Form -->
-                    <form method="POST" style="display: inline;">
-                        <input type="hidden" name="delete_item_index" value="{{ loop.index0 }}">
-                        <button type="submit" style="background-color: red;">Delete</button>
+                    <form method="POST">
+                        <input type="hidden" name="delete_item_id" value="{{ item.id }}">
+                        <button type="submit" style="background-color: red;">Delete Item</button>
                     </form>
                 </td>
             </tr>
