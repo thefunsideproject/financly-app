@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cash Flow</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        h1,
+        h2 {
+            text-align: center;
+            color: #444;
+            font-size: 18px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 5px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #007BFF;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 5px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        input[type="number"],
+        input[type="text"],
+        select {
+            padding: 3px;
+            font-size: 12px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            width: 90%;
+        }
+
+        form {
+            display: inline-block;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav style="background-color: #007BFF; padding: 10px; text-align: center;">
+        <a href="{{ url_for('cash_flow') }}" style="color: white; text-decoration: none; margin-right: 20px;">Cash
+            Flow</a>
+        <a href="{{ url_for('monthly_expenses') }}"
+            style="color: white; text-decoration: none; margin-right: 20px;">Monthly Expenses</a>
+        <a href="{{ url_for('transactions') }}"
+            style="color: white; text-decoration: none; margin-right: 20px;">Transactions</a>
+        <a href="{{ url_for('inventory_page') }}" style="color: white; text-decoration: none;">Inventory</a>
+    </nav>
+
+    <h1>Cash Flow</h1>
+
+    <!-- Add New Bank -->
+    <h2>Add a New Bank</h2>
+    <form method="POST" style="text-align: center;">
+        <input type="text" name="new_bank_name" placeholder="Bank Name" required>
+        <button type="submit">Add</button>
+    </form>
+
+    <!-- Redirect to Transactions Page -->
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="{{ url_for('transactions') }}">
+            <button
+                style="background-color: #007BFF; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                View All Transactions
+            </button>
+        </a>
+    </div>
+
+    <!-- Bank Overview Table -->
+    <h2>Bank Overview</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Bank Name</th>
+                <th>Balance (BHD)</th>
+                <th>Total Deposits (BHD)</th>
+                <th>Total Withdrawals (BHD)</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bank in banks %}
+            <tr>
+                <td>{{ bank.name }}</td>
+                <td>{{ "%.2f" | format(bank.balance) }}</td>
+                <td style="color: green;">{{ "%.2f" | format(bank_totals[bank.name].deposits) if bank.name in
+                    bank_totals else "0.00" }}</td>
+                <td style="color: red;">{{ "%.2f" | format(bank_totals[bank.name].withdrawals) if bank.name in
+                    bank_totals else "0.00" }}</td>
+                <td>
+                    <!-- Deposit -->
+                    <form method="POST" style="margin-bottom: 5px;">
+                        <input type="hidden" name="bank_name" value="{{ bank.name }}">
+                        <input type="hidden" name="transaction_type" value="deposit">
+                        <input type="number" name="amount" placeholder="Deposit Amount" step="0.01" required>
+                        <input type="text" name="description" placeholder="Description (optional)">
+                        <button type="submit">Deposit</button>
+                    </form>
+                    <!-- Withdraw -->
+                    <form method="POST" style="margin-bottom: 5px;">
+                        <input type="hidden" name="bank_name" value="{{ bank.name }}">
+                        <input type="hidden" name="transaction_type" value="withdraw">
+                        <input type="number" name="amount" placeholder="Withdraw Amount" step="0.01" required>
+                        <input type="text" name="description" placeholder="Description (optional)">
+                        <button type="submit">Withdraw</button>
+                    </form>
+                    <!-- Delete Bank -->
+                    <form method="POST" style="margin-bottom: 5px;">
+                        <input type="hidden" name="delete_bank_name" value="{{ bank.name }}">
+                        <button type="submit" style="background-color: red;">Delete Bank</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- All Accounts Totals -->
+    <h2>All Accounts Totals</h2>
+    <div style="text-align: center; margin-top: 20px;">
+        <p style="color: green;"><strong>Total Deposits:</strong> {{ "%.2f" | format(total_deposits) }} BHD</p>
+        <p style="color: red;"><strong>Total Withdrawals:</strong> {{ "%.2f" | format(total_withdrawals) }} BHD</p>
+    </div>
+
+    <script>
+        function showEditForm(bankName) {
+            // Hide all other edit forms
+            document.querySelectorAll('form[id^="edit-form-"]').forEach(form => {
+                form.style.display = 'none';
+            });
+
+            // Show the edit form for the selected bank
+            const form = document.getElementById(`edit-form-${bankName}`);
+            if (form) {
+                form.style.display = 'block';
+            }
+        }
+    </script>
+
+    <!-- Transaction History Table -->
+    <h2>Transaction History</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Bank Name</th>
+                <th>Type</th>
+                <th>Amount (BHD)</th>
+                <th>Description</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for transaction in transactions %}
+            <tr>
+                <td>{{ transaction.bank_name }}</td>
+                <td>{{ transaction.type }}</td>
+                <td
+                    style="color: {% if transaction.type == 'deposit' %}green{% elif transaction.type == 'withdraw' %}red{% else %}black{% endif %};">
+                    {{ "%.2f" | format(transaction.amount) }}
+                </td>
+                <td>{{ transaction.description }}</td>
+                <td>{{ transaction.timestamp }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+
+</html>

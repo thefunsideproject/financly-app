@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            color: #444;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #007BFF;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            padding: 5px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+
+        form {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav style="background-color: #007BFF; padding: 10px; text-align: center;">
+        <a href="{{ url_for('cash_flow') }}" style="color: white; text-decoration: none; margin-right: 20px;">Cash
+            Flow</a>
+        <a href="{{ url_for('monthly_expenses') }}"
+            style="color: white; text-decoration: none; margin-right: 20px;">Monthly Expenses</a>
+        <a href="{{ url_for('transactions') }}"
+            style="color: white; text-decoration: none; margin-right: 20px;">Transactions</a>
+        <a href="{{ url_for('inventory_page') }}" style="color: white; text-decoration: none;">Inventory</a>
+    </nav>
+
+    <h1>Inventory</h1>
+
+    <!-- Add New Item Form -->
+    <form method="POST">
+        <input type="text" name="item_brand" placeholder="Brand" required>
+        <input type="text" name="item_name" placeholder="Product Name" required>
+        <input type="text" name="item_sku" placeholder="SKU" required>
+        <input type="text" name="item_color" placeholder="Color" required>
+        <input type="text" name="item_size" placeholder="Size" required>
+        <input type="number" name="item_quantity" placeholder="Quantity" min="0" required>
+        <input type="number" name="item_cost" placeholder="Cost Per Item" step="0.01" min="0" required>
+        <input type="number" name="item_selling_price" placeholder="Selling Price" step="0.01" min="0" required>
+        <button type="submit">Add Item</button>
+    </form>
+
+    <!-- Inventory Table -->
+    <table>
+        <thead>
+            <tr>
+                <th>Brand</th>
+                <th>Product Name</th>
+                <th>SKU</th>
+                <th>Color</th>
+                <th>Size</th>
+                <th>Quantity</th>
+                <th>Cost Per Item (BHD)</th>
+                <th>Selling Price (BHD)</th>
+                <th>Profit Per Item (BHD)</th>
+                <th>Margin (%)</th>
+                <th>Total Items Cost (BHD)</th>
+                <th>Total Profit (BHD)</th>
+                <th>Total Revenue Available (BHD)</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in inventory %}
+            <tr>
+                <td>{{ item.brand }}</td>
+                <td>{{ item.name }}</td>
+                <td>{{ item.sku }}</td>
+                <td>{{ item.color }}</td>
+                <td>{{ item.size }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ "%.2f" | format(item.cost) }}</td>
+                <td>{{ "%.2f" | format(item.selling_price) }}</td>
+                <td>{{ "%.2f" | format(item.profit) }}</td> <!-- Profit Per Item -->
+                <td>{{ "%.2f" | format(item.margin) }}%</td> <!-- Margin -->
+                <td>{{ "%.2f" | format(item.quantity * item.cost) }}</td> <!-- Total Items Cost -->
+                <td>{{ "%.2f" | format(item.quantity * item.profit) }}</td> <!-- Total Profit -->
+                <td>{{ "%.2f" | format(item.quantity * item.selling_price) }}</td> <!-- Total Revenue -->
+                <td>
+                    <!-- Update Quantity Form -->
+                    <form method="POST" style="display: inline;">
+                        <input type="hidden" name="update_item_index" value="{{ loop.index0 }}">
+                        <input type="number" name="new_quantity" placeholder="New Quantity" min="0" required>
+                        <button type="submit">Update</button>
+                    </form>
+                    <!-- Delete Item Form -->
+                    <form method="POST" style="display: inline;">
+                        <input type="hidden" name="delete_item_index" value="{{ loop.index0 }}">
+                        <button type="submit" style="background-color: red;">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Totals -->
+    <div style="text-align: center; margin-top: 20px;">
+        <p><strong>Total Items Cost:</strong> {{ "%.2f" | format(total_items_cost) }} BHD</p>
+        <p><strong>Total Profit Available:</strong> {{ "%.2f" | format(total_profit_available) }} BHD</p>
+        <p><strong>Total Revenue Available:</strong> {{ "%.2f" | format(total_revenue_available) }} BHD</p>
+        <p><strong>Average Inventory Margin:</strong> {{ "%.2f" | format(average_margin) }}%</p>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Transactions</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            color: #444;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #007BFF;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        input[type="date"],
+        select {
+            padding: 5px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+
+        form {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav style="background-color: #007BFF; padding: 10px; text-align: center;">
+        <a href="{{ url_for('cash_flow') }}" style="color: white; text-decoration: none; margin-right: 20px;">Cash
+            Flow</a>
+        <a href="{{ url_for('monthly_expenses') }}"
+            style="color: white; text-decoration: none; margin-right: 20px;">Monthly Expenses</a>
+        <a href="{{ url_for('transactions') }}" style="color: white; text-decoration: none;">Transactions</a>
+    </nav>
+
+    <h1>All Transactions</h1>
+
+    <!-- Export Transactions Button -->
+    <a href="{{ url_for('export_transactions') }}" style="background-color: #007BFF; color: white; padding: 10px; text-decoration: none; border-radius: 5px;">
+        Export Transactions to CSV
+    </a>
+
+    <!-- Filter Form -->
+    <form method="POST">
+        <label for="start_date">Start Date:</label>
+        <input type="date" name="start_date" id="start_date">
+        <label for="end_date">End Date:</label>
+        <input type="date" name="end_date" id="end_date">
+        <label for="bank_name">Bank:</label>
+        <select name="bank_name" id="bank_name">
+            <option value="" selected>All Banks</option>
+            {% for bank in banks %}
+            <option value="{{ bank.name }}">{{ bank.name }}</option>
+            {% endfor %}
+        </select>
+        <label for="transaction_type">Type:</label>
+        <select name="transaction_type" id="transaction_type">
+            <option value="" selected>All Types</option>
+            <option value="deposit">Deposit</option>
+            <option value="withdraw">Withdraw</option>
+            <option value="transfer_in">Transfer In</option>
+            <option value="transfer_out">Transfer Out</option>
+            <option value="edit_balance">Edit Balance</option>
+        </select>
+        <button type="submit">Filter</button>
+    </form>
+
+    <!-- Transactions Table -->
+    <table>
+        <thead>
+            <tr>
+                <th>Bank Name</th>
+                <th>Type</th>
+                <th>Amount (BHD)</th>
+                <th>Description</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for transaction in transactions %}
+            <tr>
+                <td>{{ transaction["bank_name"] }}</td>
+                <td>
+                    <span
+                        style="color: {% if transaction['type'] == 'deposit' %}green{% elif transaction['type'] == 'withdraw' %}red{% elif transaction['type'] == 'edit_balance' %}blue{% else %}black{% endif %};">
+                        {{ transaction["type"].replace('_', ' ').capitalize() }}
+                    </span>
+                </td>
+                <td>
+                    <span
+                        style="color: {% if transaction['type'] == 'deposit' %}green{% elif transaction['type'] == 'withdraw' %}red{% elif transaction['type'] == 'edit_balance' %}blue{% else %}black{% endif %};">
+                        {{ transaction["amount"] }}
+                    </span>
+                </td>
+                <td>{{ transaction["description"] }}</td>
+                <td>{{ transaction["timestamp"] }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+
+</html>

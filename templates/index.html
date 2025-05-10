@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Tracker</title>
+</head>
+
+<body>
+    <h1>Cash Flow Tracker</h1>
+
+    <!-- Form for Deposit/Withdrawal -->
+    <h2>Deposit/Withdraw Money</h2>
+    <form method="POST">
+        <label for="bank_name">Select Bank:</label>
+        <select name="bank_name" id="bank_name">
+            <option value="Products Budget Bank">Products Budget Bank</option>
+            <option value="Operation Bank">Operation Bank</option>
+            <option value="Monthly Expenses Bank">Monthly Expenses Bank</option>
+        </select>
+
+        <label for="amount">Amount:</label>
+        <input type="number" name="amount" step="0.01" required> <!-- Allow decimals -->
+
+        <label for="description">Description:</label>
+        <input type="text" name="description" required>
+
+        <label for="transaction_type">Transaction Type:</label>
+        <select name="transaction_type">
+            <option value="deposit">Deposit</option>
+            <option value="withdraw">Withdraw</option>
+        </select>
+
+        <button type="submit">Submit</button>
+    </form>
+
+    <h2>Total Cash Flow: BHD {{ total_balance }}</h2>
+
+    <h2>Bank Balances:</h2>
+    <ul>
+        {% for bank_name, bank_data in banks.items() %}
+        <li>
+            <strong>{{ bank_name }}:</strong> BHD {{ bank_data['balance'] }}
+            <ul>
+                {% for transaction in bank_data['transactions'] %}
+                <li>
+                    {{ transaction['type'].capitalize() }}: BHD {{ transaction['amount'] }} -
+                    {{ transaction['description'] }}
+                    <em>(on {{ transaction['timestamp'] }})</em> <!-- Display timestamp -->
+                </li>
+                {% endfor %}
+            </ul>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <h2>Transfer Between Banks</h2>
+    <form method="POST">
+        <label for="source_bank">Source Bank:</label>
+        <select name="source_bank" id="source_bank" required>
+            {% for bank_name in banks.keys() %}
+            <option value="{{ bank_name }}">{{ bank_name }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="destination_bank">Destination Bank:</label>
+        <select name="destination_bank" id="destination_bank" required>
+            {% for bank_name in banks.keys() %}
+            <option value="{{ bank_name }}">{{ bank_name }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="transfer_amount">Amount:</label>
+        <input type="number" name="transfer_amount" id="transfer_amount" step="0.01" required> <!-- Allow decimals -->
+
+        <button type="submit">Transfer</button>
+    </form>
+
+    <h2>Monthly Expenses</h2>
+    <p><strong>Monthly Expenses Bank Balance:</strong> BHD {{ monthly_expenses_bank_balance }}</p>
+    <!-- Display the balance -->
+
+    <form method="POST">
+        <label for="expense_name">Expense Name:</label>
+        <input type="text" name="expense_name" required>
+
+        <label for="expense_amount">Expense Amount:</label>
+        <input type="number" name="expense_amount" step="0.01" required> <!-- Allow decimals -->
+
+        <button type="submit">Add Expense</button>
+    </form>
+
+    <h3>Expenses Summary:</h3>
+    <p><strong>Total Paid:</strong> BHD {{ total_paid }}</p>
+    <p><strong>Total Remaining:</strong> BHD {{ total_remaining }}</p>
+
+    <h3>Expenses List:</h3>
+    <ul>
+        {% for i, expense in enumerate(expenses) %}
+        <li>
+            {% if edit_index == i %}
+            <form method="POST">
+                <input type="hidden" name="edit_index" value="{{ i }}">
+                <label for="expense_name_{{ i }}">Name:</label>
+                <input type="text" name="expense_name" id="expense_name_{{ i }}" value="{{ expense.name }}" required>
+                <label for="expense_amount_{{ i }}">Amount:</label>
+                <input type="number" name="expense_amount" id="expense_amount_{{ i }}" value="{{ expense.amount }}"
+                    required>
+                <button type="submit">Save</button>
+            </form>
+            {% else %}
+            {{ expense.name }} - BHD {{ expense.amount }}
+            {% if expense.paid %}
+            (Paid)
+            {% else %}
+            <form method="POST" style="display:inline;">
+                <button type="submit" name="mark_paid" value="{{ i }}">Mark as Paid</button>
+            </form>
+            {% endif %}
+            <form method="POST" style="display:inline;">
+                <input type="hidden" name="edit_index" value="{{ i }}">
+                <button type="submit">Edit</button>
+            </form>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</body>
+
+</html>
